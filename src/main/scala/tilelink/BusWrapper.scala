@@ -211,6 +211,7 @@ class TLBusWrapperTopology(
 
 trait CanAttachTLSlaves extends HasTLBusParams { this: TLBusWrapper =>
 
+  @deprecated("Replace with e.g. bus.coupleTo(s\"tile_named_${name}\"){ tile.slaveNode :*= _ } or HasTiles+TilesLocated", "rocket-chip 1.3")
   def toTile
       (name: Option[String] = None, buffer: BufferParams = BufferParams.none)
       (gen: => TLInwardNode): NoHandle = {
@@ -309,6 +310,7 @@ trait CanAttachTLSlaves extends HasTLBusParams { this: TLBusWrapper =>
 }
 
 trait CanAttachTLMasters extends HasTLBusParams { this: TLBusWrapper =>
+  @deprecated("Replace with e.g. bus.coupleFrom(s\"tile_named_${name}\"){ _ :=* tile.masterNode } or use HasTiles+TilesLocated", "rocket-chip 1.3")
   def fromTile
       (name: Option[String], buffer: BufferParams = BufferParams.none, cork: Option[Boolean] = None)
       (gen: => TLOutwardNode): NoHandle = {
