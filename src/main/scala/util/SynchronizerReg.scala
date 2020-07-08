@@ -109,7 +109,7 @@ object AsyncResetSynchronizerShiftReg {
 }
 
 // Note: This module may end up with a non-Bool type reset.
-// But the Primitives within will always have AsyncReset type.
+// But the Primitives within will always have Bool reset type.
 @deprecated("SyncResetSynchronizerShiftReg is unecessary with Chisel3 inferred resets. Use ResetSynchronizerShiftReg which will use the inferred reset type.", "rocket-chip 1.2")
 class SyncResetSynchronizerShiftReg(w: Int = 1, sync: Int, init: Int) extends AbstractPipelineReg(w) {
   require(sync > 1, s"Sync must be greater than 1, not ${sync}.")
