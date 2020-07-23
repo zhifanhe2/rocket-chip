@@ -6,6 +6,7 @@ package freechips.rocketchip.rocket
 import Chisel._
 import Chisel.ImplicitConversions._
 import chisel3.internal.InstanceId
+import chisel3.WireInit
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.subsystem.CacheBlockBytes
 import freechips.rocketchip.tile.HasCoreParameters
@@ -54,8 +55,8 @@ class RAS(nras: Int) {
   def clear(): Unit = count := UInt(0)
   def isEmpty: Bool = count === UInt(0)
 
-  private val count = Reg(UInt(width = log2Up(nras+1)))
-  private val pos = Reg(UInt(width = log2Up(nras)))
+  private val count = RegInit(0.U(log2Up(nras+1).W))
+  private val pos = RegInit(0.U(log2Up(nras).W))
   private val stack = Reg(Vec(nras, UInt()))
 }
 
@@ -90,15 +91,19 @@ class BHT(params: BHTParams)(implicit val p: Parameters) extends HasCoreParamete
   }
   def get(addr: UInt): BHTResp = {
     val res = Wire(new BHTResp)
-    res.value := table(index(addr, history))
+    res.value := Mux(resetting, 0.U, table(index(addr, history)))
     res.history := history
     res
   }
   def updateTable(addr: UInt, d: BHTResp, taken: Bool): Unit = {
-    table(index(addr, d.history)) := (params.counterLength match {
-      case 1 => taken
-      case 2 => Cat(taken ^ d.value(0), d.value === 1 || d.value(1) && taken)
-    })
+    wen := true
+    when (!resetting) {
+      waddr := index(addr, d.history)
+      wdata := (params.counterLength match {
+        case 1 => taken
+        case 2 => Cat(taken ^ d.value(0), d.value === 1 || d.value(1) && taken)
+      })
+    }
   }
   def resetHistory(d: BHTResp): Unit = {
     history := d.history
@@ -111,7 +116,15 @@ class BHT(params: BHTParams)(implicit val p: Parameters) extends HasCoreParamete
   }
 
   private val table = Mem(params.nEntries, UInt(width = params.counterLength))
-  val history = Reg(UInt(width = params.historyLength))
+  val history = RegInit(0.U(params.historyLength.W))
+
+  private val reset_waddr = RegInit(0.U((params.nEntries.log2+1).W))
+  private val resetting = !reset_waddr(params.nEntries.log2)
+  private val wen = WireInit(resetting)
+  private val waddr = WireInit(reset_waddr)
+  private val wdata = WireInit(0.U)
+  when (!resetting) { reset_waddr := reset_waddr + 1 }
+  when (wen) { table(waddr) := wdata }
 }
 
 object CFIType {
@@ -222,7 +235,7 @@ class BTB(implicit p: Parameters) extends BtbModule {
   val useUpdatePageHit = updatePageHit.orR
   val usePageHit = pageHit.orR
   val doIdxPageRepl = !useUpdatePageHit
-  val nextPageRepl = Reg(UInt(width = log2Ceil(nPages)))
+  val nextPageRepl = RegInit(0.U(log2Ceil(nPages).W))
   val idxPageRepl = Cat(pageHit(nPages-2,0), pageHit(nPages-1)) | Mux(usePageHit, UInt(0), UIntToOH(nextPageRepl))
   val idxPageUpdateOH = Mux(useUpdatePageHit, updatePageHit, idxPageRepl)
   val idxPageUpdate = OHToUInt(idxPageUpdateOH)
